@@ -105,7 +105,14 @@ pub fn main() !u8 {
     try sdl2.init(sdl2.InitFlags.everything);
     defer sdl2.quit();
 
-    var window = try sdl2.createWindow("", .default, .default, header.environment.width, header.environment.height, .{ .vis = .shown });
+    var window = try sdl2.createWindow(
+        "Proxy: Head",
+        .default,
+        .default,
+        header.environment.width,
+        header.environment.height,
+        .{ .vis = .shown },
+    );
     defer window.destroy();
 
     var renderer = try sdl2.createRenderer(window, null, .{ .present_vsync = true });
