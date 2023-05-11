@@ -1,5 +1,6 @@
 const std = @import("std");
 const sdl2 = @import("sdl2");
+const args = @import("args");
 
 const proxy_head = @import("proxy-head.zig");
 
@@ -8,7 +9,60 @@ const shared_memory_header_size = proxy_head.SHM_Header_Version1.size;
 
 const shared_memory_total_size = shared_memory_data_size + shared_memory_header_size;
 
-pub fn main() !void {
+const CliOptions = struct {
+    palette: ?[]const u8 = null,
+    geometry: WindowSize = .{ .width = 800, .height = 600 },
+    help: bool = false,
+
+    pub const shorthands = .{
+        .p = "palette",
+        .g = "geometry",
+        .h = "help",
+    };
+};
+
+const WindowSize = struct {
+    width: u32,
+    height: u32,
+
+    pub fn parse(str: []const u8) !WindowSize {
+        var items = std.mem.split(u8, str, "x");
+
+        const w_str = items.next() orelse return error.InvalidFormat;
+        const h_str = items.next() orelse return error.InvalidFormat;
+        if (items.next() != null) return error.InvalidFormat;
+
+        return WindowSize{
+            .width = try std.fmt.parseInt(u32, w_str, 0),
+            .height = try std.fmt.parseInt(u32, h_str, 0),
+        };
+    }
+};
+
+var system_palette: Palette = undefined;
+
+pub fn main() !u8 {
+    var cli = args.parseForCurrentProcess(CliOptions, std.heap.c_allocator, .print) catch return 1;
+    defer cli.deinit();
+
+    if (cli.options.palette) |palette_file| {
+        var file = std.fs.cwd().openFile(palette_file, .{}) catch |err| {
+            std.log.err("failed to open palette file: {s}", .{@errorName(err)});
+            return 1;
+        };
+        defer file.close();
+
+        system_palette = Palette.parse(file.reader()) catch |err| {
+            std.log.err("invalid palette file: {s}", .{@errorName(err)});
+            return 1;
+        };
+    } else {
+        var fbr = std.io.fixedBufferStream(@embedFile("data/windows-95-256-colours.gpl"));
+        system_palette = Palette.parse(fbr.reader()) catch unreachable;
+    }
+
+    const resolution = cli.options.geometry;
+
     var shm_folder = try std.fs.cwd().openDir("/dev/shm", .{});
     defer shm_folder.close();
 
@@ -39,8 +93,8 @@ pub fn main() !void {
         .invariant = .{},
         .environment = .{
             .available_memory = shared_memory_data_size,
-            .width = 800,
-            .height = 600,
+            .width = resolution.width,
+            .height = resolution.height,
             .format = .unset,
         },
         .request = .{},
@@ -51,7 +105,7 @@ pub fn main() !void {
     try sdl2.init(sdl2.InitFlags.everything);
     defer sdl2.quit();
 
-    var window = try sdl2.createWindow("", .default, .default, 800, 600, .{ .vis = .shown });
+    var window = try sdl2.createWindow("", .default, .default, header.environment.width, header.environment.height, .{ .vis = .shown });
     defer window.destroy();
 
     var renderer = try sdl2.createRenderer(window, null, .{ .present_vsync = true });
@@ -113,7 +167,7 @@ pub fn main() !void {
                     }
                     current_video_buffer = null;
                 } else {
-                    if (VideoBuffer.create(renderer, width, height, format)) |new_vb| {
+                    if (VideoBuffer.create(std.heap.c_allocator, renderer, width, height, format)) |new_vb| {
                         if (current_video_buffer) |*vb| {
                             vb.destroy();
                         }
@@ -178,11 +232,14 @@ pub fn main() !void {
 
         renderer.present();
     }
+
+    return 0;
 }
 
 fn colorToSdlFormat(fmt: proxy_head.ColorFormat) ?sdl2.PixelFormatEnum {
     return switch (fmt) {
         .unset => null,
+        .index8 => .rgbx8888,
         inline else => |item| return @field(sdl2.PixelFormatEnum, @tagName(item)),
     };
 }
@@ -192,27 +249,111 @@ const VideoBuffer = struct {
     width: usize,
     height: usize,
     format: proxy_head.ColorFormat,
+    intermediate_buffer: []Palette.Color,
+    allocator: std.mem.Allocator,
 
-    pub fn create(renderer: sdl2.Renderer, width: usize, height: usize, format: proxy_head.ColorFormat) !VideoBuffer {
+    pub fn create(allocator: std.mem.Allocator, renderer: sdl2.Renderer, width: usize, height: usize, format: proxy_head.ColorFormat) !VideoBuffer {
         const sdl_format = colorToSdlFormat(format) orelse return error.UnsupportedFormat;
 
         var texture = try sdl2.createTexture(renderer, sdl_format, .streaming, width, height);
         errdefer texture.destroy();
+
+        const buffer = switch (format) {
+            .index8 => try allocator.alloc(Palette.Color, width * height),
+            else => try allocator.alloc(Palette.Color, 0),
+        };
 
         return VideoBuffer{
             .texture = texture,
             .width = width,
             .height = height,
             .format = format,
+            .intermediate_buffer = buffer,
+            .allocator = allocator,
         };
     }
 
     pub fn destroy(vb: *VideoBuffer) void {
+        vb.allocator.free(vb.intermediate_buffer);
         vb.texture.destroy();
         vb.* = undefined;
     }
 
     pub fn update(vb: *VideoBuffer, storage: []const u8) !void {
-        try vb.texture.update(storage, vb.width * vb.format.bytesPerPixel(), null);
+        switch (vb.format) {
+            .index8 => {
+                for (vb.intermediate_buffer, storage[0..vb.intermediate_buffer.len]) |*dst, src| {
+                    dst.* = system_palette.items[src];
+                }
+                try vb.texture.update(std.mem.sliceAsBytes(vb.intermediate_buffer), vb.width * @sizeOf(Palette.Color), null);
+            },
+            else => try vb.texture.update(storage, vb.width * vb.format.bytesPerPixel(), null),
+        }
+    }
+};
+
+const Palette = struct {
+    const Color = proxy_head.ColorFormat.RGBX8888;
+
+    items: [256]Color,
+
+    fn parse(stream: anytype) !Palette {
+        var buffered = std.io.bufferedReader(stream);
+        const reader = buffered.reader();
+
+        const ParserState = union(enum) {
+            await_header,
+            color: u8,
+            eof,
+        };
+
+        var result = Palette{
+            .items = [1]Color{Color{ .r = 0xFF, .g = 0x00, .b = 0xFF }} ** 256,
+        };
+
+        var line_buffer: [1024]u8 = undefined;
+
+        var state: ParserState = .await_header;
+        while (try reader.readUntilDelimiterOrEof(&line_buffer, '\n')) |raw_line| {
+            const comment_pos = std.mem.indexOfScalar(u8, raw_line, '#') orelse raw_line.len;
+            const line = std.mem.trim(u8, raw_line[0..comment_pos], "\r\n \t");
+            if (line.len == 0)
+                continue;
+
+            switch (state) {
+                .await_header => {
+                    if (!std.ascii.eqlIgnoreCase(line, "GIMP Palette")) {
+                        return error.InvalidFormat;
+                    }
+                    state = .{ .color = 0 };
+                },
+                .color => |*index| {
+                    var items = std.mem.tokenize(u8, line, " \r\t");
+
+                    const r_str = items.next() orelse return error.InvalidFormat;
+                    const g_str = items.next() orelse return error.InvalidFormat;
+                    const b_str = items.next() orelse return error.InvalidFormat;
+
+                    const r_int = try std.fmt.parseInt(u8, r_str, 0);
+                    const g_int = try std.fmt.parseInt(u8, g_str, 0);
+                    const b_int = try std.fmt.parseInt(u8, b_str, 0);
+
+                    result.items[index.*] = .{
+                        .r = r_int,
+                        .g = g_int,
+                        .b = b_int,
+                    };
+
+                    if (index.* == 0xFF) {
+                        state = .eof;
+                    } else {
+                        index.* += 1;
+                    }
+                },
+                .eof => return error.UnexpectedData,
+            }
+        }
+
+        return result;
     }
 };

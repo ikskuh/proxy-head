@@ -4,6 +4,7 @@ const SDL2 = @import("sdl2");
 
 pub fn build(b: *std.Build) void {
     const sdl_sdk = SDL2.init(b, null);
+    const args_dep = b.dependency("args", .{});
 
     const proxy_head_module = b.addModule("ProxyHead", .{
         .source_file = .{ .path = "src/ProxyClient.zig" },
@@ -18,6 +19,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    exe.addModule("args", args_dep.module("args"));
     exe.addModule("sdl2", sdl_sdk.getWrapperModule());
     sdl_sdk.link(exe, .dynamic);
     b.installArtifact(exe);
