@@ -16,15 +16,8 @@ applications without always rewriting the same code for opening windows cross-pl
 - Flexible head resolution
 - User-configurable palette for indexed mode
 
-## Nice to have
-
-These features are not implement, but would be cool to have:
-
-- [ ] Multi-head support
-- [ ] Save to screenshot
-- [ ] C library
-
-Feel free to implement them!
+There are always some improvements to do. Check out [the issue list](https://github.com/MasterQ32/proxy-head/labels/enhancement) to see what's left to do.  
+Feel free to just implement them!
 
 ## Usage Example
 
