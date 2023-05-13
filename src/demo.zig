@@ -17,10 +17,8 @@ pub fn main() !void {
                 break;
 
             var row = fb.base;
-            var y: usize = 0;
-            while (y < fb.height) : (y += 1) {
-                var x: usize = 0;
-                while (x < fb.width) : (x += 1) {
+            for (0..fb.height) |y| {
+                for (0..fb.width) |x| {
                     var color = ProxyHead.ColorFormat.RGBX8888{
                         .r = @truncate(u8, x),
                         .g = @truncate(u8, y),
