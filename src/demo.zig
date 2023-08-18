@@ -20,13 +20,13 @@ pub fn main() !void {
             for (0..fb.height) |y| {
                 for (0..fb.width) |x| {
                     var color = ProxyHead.ColorFormat.RGBX8888{
-                        .r = @truncate(u8, x),
-                        .g = @truncate(u8, y),
-                        .b = @truncate(u8, x) ^ @truncate(u8, y),
+                        .r = @as(u8, @truncate(x)),
+                        .g = @as(u8, @truncate(y)),
+                        .b = @as(u8, @truncate(x)) ^ @as(u8, @truncate(y)),
                     };
 
-                    const dx = @intCast(isize, x) - input.mouse_x;
-                    var dy = @intCast(isize, y) - input.mouse_y;
+                    const dx = @as(isize, @intCast(x)) - input.mouse_x;
+                    var dy = @as(isize, @intCast(y)) - input.mouse_y;
                     if (dy > 0) {
                         dy *= 2;
                     }
@@ -68,7 +68,7 @@ pub fn main() !void {
         var loop: u8 = 0;
         while (true) {
             for (fb.base[0 .. fb.height * fb.stride], 0..) |*c, i| {
-                c.* = @truncate(u8, i ^ (i >> 8)) +% loop;
+                c.* = @as(u8, @truncate(i ^ (i >> 8))) +% loop;
             }
             loop +%= 1;
             std.time.sleep(30 * std.time.ns_per_ms); // ~ 30 Hz

@@ -9,7 +9,7 @@ pub const SHM_Invariant_Header = extern struct {
 };
 
 pub const SHM_Header_Version1 = extern struct {
-    pub const size = std.mem.alignForward(@sizeOf(@This()), 16);
+    pub const size = std.mem.alignForward(usize, @sizeOf(@This()), 16);
 
     invariant: SHM_Invariant_Header, // must come first
 

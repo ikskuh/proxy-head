@@ -9,7 +9,7 @@ pub const ColorFormat = proxy_head.ColorFormat;
 shm_file: std.fs.File,
 shm_buffer: []align(std.mem.page_size) u8,
 video_memory: []align(16) u8,
-input: *volatile const proxy_head.SHM_Header_Version1.Input,
+input: *const volatile proxy_head.SHM_Header_Version1.Input,
 
 pub fn open() !Client {
     var shm_file = try std.fs.cwd().openFile("/dev/shm/proxy-head", .{
@@ -29,19 +29,19 @@ pub fn open() !Client {
     );
     errdefer std.os.munmap(mapped_memory);
 
-    const invariant_header = @ptrCast(*volatile proxy_head.SHM_Invariant_Header, mapped_memory.ptr);
+    const invariant_header = @as(*volatile proxy_head.SHM_Invariant_Header, @ptrCast(mapped_memory.ptr));
     if (invariant_header.magic_bytes != proxy_head.SHM_Invariant_Header.magic)
         return error.InvalidMagic;
     if (invariant_header.version != 1)
         return error.UnsupportedVersion;
 
-    const hdr = @ptrCast(*volatile proxy_head.SHM_Header_Version1, mapped_memory.ptr);
+    const hdr = @as(*volatile proxy_head.SHM_Header_Version1, @ptrCast(mapped_memory.ptr));
 
     const available_memory = mapped_memory[proxy_head.SHM_Header_Version1.size..];
     if (available_memory.len < hdr.environment.available_memory)
         return error.CorruptConfiguration;
 
-    const video_memory: []align(16) u8 = @alignCast(16, available_memory[0..hdr.environment.available_memory]);
+    const video_memory: []align(16) u8 = @alignCast(available_memory[0..hdr.environment.available_memory]);
 
     hdr.request.connected = 1;
 
@@ -61,7 +61,7 @@ pub fn close(client: *Client) void {
 }
 
 fn header(client: Client) *volatile proxy_head.SHM_Header_Version1 {
-    return @ptrCast(*volatile proxy_head.SHM_Header_Version1, client.shm_buffer.ptr);
+    return @as(*volatile proxy_head.SHM_Header_Version1, @ptrCast(client.shm_buffer.ptr));
 }
 
 pub fn requestFramebuffer(client: *Client, comptime format: proxy_head.ColorFormat, width: u32, height: u32, timeout: u64) error{Timeout}!Framebuffer(format.PixelType()) {
@@ -76,7 +76,7 @@ pub fn requestFramebuffer(client: *Client, comptime format: proxy_head.ColorForm
     const Pixel = format.PixelType();
 
     return Framebuffer(Pixel){
-        .base = @ptrCast([*]align(16) Pixel, client.video_memory.ptr),
+        .base = @as([*]align(16) Pixel, @ptrCast(client.video_memory.ptr)),
         .width = width,
         .height = height,
         .stride = width,

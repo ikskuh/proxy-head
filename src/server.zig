@@ -88,7 +88,7 @@ pub fn main() !u8 {
     );
     defer std.os.munmap(mapped_memory);
 
-    const header = @ptrCast(*volatile proxy_head.SHM_Header_Version1, mapped_memory.ptr);
+    const header = @as(*volatile proxy_head.SHM_Header_Version1, @ptrCast(mapped_memory.ptr));
     header.* = proxy_head.SHM_Header_Version1{
         .invariant = .{},
         .environment = .{
@@ -100,7 +100,8 @@ pub fn main() !u8 {
         .request = .{},
         .input = .{},
     };
-    const video_memory: []align(16) u8 = @alignCast(16, mapped_memory[shared_memory_header_size..]);
+    
+    const video_memory: []align(16) u8 = @alignCast(mapped_memory[shared_memory_header_size..]);
 
     try sdl2.init(sdl2.InitFlags.everything);
     defer sdl2.quit();
@@ -159,8 +160,8 @@ pub fn main() !u8 {
 
         const window_size = window.getSize();
 
-        header.environment.width = @intCast(u32, window_size.width);
-        header.environment.height = @intCast(u32, window_size.height);
+        header.environment.width = @as(u32, @intCast(window_size.width));
+        header.environment.height = @as(u32, @intCast(window_size.height));
 
         if (header.request.connected != 0) {
             if (header.request.dirty_flag != 0) {
@@ -204,25 +205,27 @@ pub fn main() !u8 {
             try renderer.setColorRGB(0x00, 0x00, 0xAA);
             try renderer.clear();
 
-            const scale = @intCast(u32, @max(
+            const scale = @as(u32, @intCast(@max(
                 1,
                 @min(
-                    @intCast(usize, window_size.width) / vb.width,
-                    @intCast(usize, window_size.height) / vb.height,
+                    @as(usize, @intCast(window_size.width)) / vb.width,
+                    @as(usize, @intCast(window_size.height)) / vb.height,
                 ),
-            ));
+            )));
 
             const rect = sdl2.Rectangle{
-                .x = @divFloor(window_size.width -| @intCast(c_int, scale * vb.width), 2),
-                .y = @divFloor(window_size.height -| @intCast(c_int, scale * vb.height), 2),
-                .width = @min(@intCast(c_int, scale * vb.width), window_size.width),
-                .height = @min(@intCast(c_int, scale * vb.height), window_size.height),
+                .x = @max(0, @divFloor(window_size.width -| @as(c_int, @intCast(scale * vb.width)), 2)),
+                .y = @max(0, @divFloor(window_size.height -| @as(c_int, @intCast(scale * vb.height)), 2)),
+                .width = @min(@as(c_int, @intCast(scale * vb.width)), window_size.width),
+                .height = @min(@as(c_int, @intCast(scale * vb.height)), window_size.height),
             };
 
-            header.input.mouse_x = @intCast(u32, std.math.clamp(mouse_x - rect.x, 0, rect.width - 1)) / scale;
-            header.input.mouse_y = @intCast(u32, std.math.clamp(mouse_y - rect.y, 0, rect.height - 1)) / scale;
+            header.input.mouse_x = @as(u32, @intCast(std.math.clamp(mouse_x - rect.x, 0, rect.width - 1))) / scale;
+            header.input.mouse_y = @as(u32, @intCast(std.math.clamp(mouse_y - rect.y, 0, rect.height - 1))) / scale;
             header.input.mouse_buttons = mouse_buttons;
             header.input.keyboard = keyboard;
+
+            // std.log.info("scale={} rect={}", .{ scale, rect });
 
             try renderer.copy(vb.texture, rect, null);
         } else {
