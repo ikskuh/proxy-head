@@ -78,15 +78,15 @@ pub fn main() !u8 {
     try shm_file.seekTo(shared_memory_total_size - 1);
     try shm_file.writeAll(".");
 
-    const mapped_memory = try std.os.mmap(
+    const mapped_memory = try std.posix.mmap(
         null,
         shared_memory_total_size,
-        std.os.PROT.READ | std.os.PROT.WRITE,
-        std.os.MAP.SHARED,
+        std.posix.PROT.READ | std.posix.PROT.WRITE,
+        .{ .TYPE = .SHARED },
         shm_file.handle,
         0,
     );
-    defer std.os.munmap(mapped_memory);
+    defer std.posix.munmap(mapped_memory);
 
     const header = @as(*volatile proxy_head.SHM_Header_Version1, @ptrCast(mapped_memory.ptr));
     header.* = proxy_head.SHM_Header_Version1{
@@ -100,7 +100,7 @@ pub fn main() !u8 {
         .request = .{},
         .input = .{},
     };
-    
+
     const video_memory: []align(16) u8 = @alignCast(mapped_memory[shared_memory_header_size..]);
 
     try sdl2.init(sdl2.InitFlags.everything);

@@ -7,7 +7,7 @@ pub fn build(b: *std.Build) void {
     const args_dep = b.dependency("args", .{});
 
     const proxy_head_module = b.addModule("ProxyHead", .{
-        .source_file = .{ .path = "src/ProxyClient.zig" },
+        .root_source_file = b.path("src/ProxyClient.zig"),
     });
 
     const target = b.standardTargetOptions(.{});
@@ -15,22 +15,22 @@ pub fn build(b: *std.Build) void {
 
     const exe = b.addExecutable(.{
         .name = "proxy-head",
-        .root_source_file = .{ .path = "src/server.zig" },
+        .root_source_file = b.path("src/server.zig"),
         .target = target,
         .optimize = optimize,
     });
-    exe.addModule("args", args_dep.module("args"));
-    exe.addModule("sdl2", sdl_sdk.getWrapperModule());
+    exe.root_module.addImport("args", args_dep.module("args"));
+    exe.root_module.addImport("sdl2", sdl_sdk.getWrapperModule());
     sdl_sdk.link(exe, .dynamic);
     b.installArtifact(exe);
 
     const demo = b.addExecutable(.{
         .name = "proxy-head-demo",
-        .root_source_file = .{ .path = "src/demo.zig" },
+        .root_source_file = b.path("src/demo.zig"),
         .target = target,
         .optimize = optimize,
     });
-    demo.addModule("ProxyHead", proxy_head_module);
+    demo.root_module.addImport("ProxyHead", proxy_head_module);
     b.installArtifact(demo);
 
     const run_cmd = b.addRunArtifact(exe);
@@ -45,7 +45,7 @@ pub fn build(b: *std.Build) void {
     run_step.dependOn(&run_cmd.step);
 
     const unit_tests = b.addTest(.{
-        .root_source_file = .{ .path = "src/main.zig" },
+        .root_source_file = b.path("src/ProxyClient.zig"),
         .target = target,
         .optimize = optimize,
     });

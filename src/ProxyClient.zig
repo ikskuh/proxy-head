@@ -19,15 +19,15 @@ pub fn open() !Client {
 
     const file_stat = try shm_file.stat();
 
-    const mapped_memory = try std.os.mmap(
+    const mapped_memory = try std.posix.mmap(
         null,
         file_stat.size,
-        std.os.PROT.READ | std.os.PROT.WRITE,
-        std.os.MAP.SHARED,
+        std.posix.PROT.READ | std.posix.PROT.WRITE,
+        .{ .TYPE = .SHARED },
         shm_file.handle,
         0,
     );
-    errdefer std.os.munmap(mapped_memory);
+    errdefer std.posix.munmap(mapped_memory);
 
     const invariant_header = @as(*volatile proxy_head.SHM_Invariant_Header, @ptrCast(mapped_memory.ptr));
     if (invariant_header.magic_bytes != proxy_head.SHM_Invariant_Header.magic)
@@ -55,7 +55,7 @@ pub fn open() !Client {
 
 pub fn close(client: *Client) void {
     client.header().request.connected = 0;
-    std.os.munmap(client.shm_buffer);
+    std.posix.munmap(client.shm_buffer);
     client.shm_file.close();
     client.* = undefined;
 }
