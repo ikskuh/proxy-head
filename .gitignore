@@ -1,2 +1,3 @@
+.envrc/
 .zig-cache/
 zig-out/
