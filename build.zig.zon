@@ -4,12 +4,14 @@
 
     .dependencies = .{
         .sdl2 = .{
-            .url = "https://github.com/MasterQ32/SDL.zig/archive/602aeb7f1d33da71626aff54a25ef69fef7c613b.tar.gz",
-            .hash = "122035d5adee502d4e1036919c789f12baf45a37805a3c1903a632d0cd86ec76c6e1",
+            .url = "https://github.com/ikskuh/SDL.zig/archive/760cc08bb5da91fdec97e54b04690a1582d54349.tar.gz",
+            .hash = "1220b45b0d030d3fe567b66eaa57f515e2ed4e9c2b37c8fd7be7e1e7a5702c7e1496",
         },
         .args = .{
-            .url = "https://github.com/MasterQ32/zig-args/archive/bb2eced8ddf28114b3a1ff761c2d80b90b1a61e2.tar.gz",
-            .hash = "12208556082c280af264ca2a174fd04fc7a35f865bfe59e2c61f4a977bf7a65063e4",
+            .url = "https://github.com/ikskuh/zig-args/archive/872272205d95bdba33798c94e72c5387a31bc806.tar.gz",
+            .hash = "1220fe6ae56b668cc4a033282b5f227bfbb46a67ede6d84e9f9493fea9de339b5f37",
         },
     },
+
+    .paths = .{""},
 }

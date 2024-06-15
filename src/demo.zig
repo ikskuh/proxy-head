@@ -31,7 +31,7 @@ pub fn main() !void {
                         dy *= 2;
                     }
 
-                    const d = (std.math.absCast(dx) + std.math.absCast(dy));
+                    const d = (@abs(dx) + @abs(dy));
                     if (d < 8) {
                         color = .{ .r = 0xFF, .g = 0xFF, .b = 0xFF };
                         if (dy <= 0) {
