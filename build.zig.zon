@@ -4,8 +4,8 @@
 
     .dependencies = .{
         .sdl2 = .{
-            .url = "https://github.com/ikskuh/SDL.zig/archive/760cc08bb5da91fdec97e54b04690a1582d54349.tar.gz",
-            .hash = "1220b45b0d030d3fe567b66eaa57f515e2ed4e9c2b37c8fd7be7e1e7a5702c7e1496",
+            .url = "https://github.com/ikskuh/SDL.zig/archive/60650591b9c7deff6a1e57c18901c5068f852e26.tar.gz",
+            .hash = "122051e6ccd8643eb6b0ea5f3176a3a98f41badaf499feb1ba31b3bba4e1cd339f6a",
         },
         .args = .{
             .url = "https://github.com/ikskuh/zig-args/archive/872272205d95bdba33798c94e72c5387a31bc806.tar.gz",

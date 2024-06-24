@@ -26,7 +26,7 @@ const WindowSize = struct {
     height: u32,
 
     pub fn parse(str: []const u8) !WindowSize {
-        var items = std.mem.split(u8, str, "x");
+        var items = std.mem.splitScalar(u8, str, 'x');
 
         const w_str = items.next() orelse return error.InvalidFormat;
         const h_str = items.next() orelse return error.InvalidFormat;
@@ -338,7 +338,7 @@ const Palette = struct {
                     state = .{ .color = 0 };
                 },
                 .color => |*index| {
-                    var items = std.mem.tokenize(u8, line, " \r\t");
+                    var items = std.mem.tokenizeAny(u8, line, " \r\t");
 
                     const r_str = items.next() orelse return error.InvalidFormat;
                     const g_str = items.next() orelse return error.InvalidFormat;
